@@ -11,6 +11,16 @@ type Player = {
   color: string;
 };
 
+type TransferRecord = {
+  id: string;
+  timestamp: number;
+  amount: number;
+  sourceId: string;
+  targetId: string;
+  sourceName: string;
+  targetName: string;
+};
+
 const DENOMINATIONS = [1, 5, 10, 20, 50, 100, 500];
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
@@ -19,6 +29,13 @@ const BANK_ID = "bank";
 const TAX_ID = "tax";
 const PLAYER_COLORS = ["#ffb347", "#5dd6c1", "#6ea8ff", "#f970b7"] as const;
 const STORAGE_KEY = "monopoly-banker-v1";
+const GAIN_COLOR = "#34d399";
+const LOSS_COLOR = "#f87171";
+
+const timeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+});
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -72,6 +89,60 @@ const sanitizePlayers = (maybePlayers: unknown): Player[] => {
   return sanitized;
 };
 
+const sanitizeHistory = (maybeHistory: unknown): TransferRecord[] => {
+  if (!Array.isArray(maybeHistory)) {
+    return [];
+  }
+
+  const fallbackBase = Date.now().toString(36);
+  const sanitized: TransferRecord[] = [];
+
+  maybeHistory.slice(0, 10).forEach((entry, index) => {
+    if (typeof entry !== "object" || entry === null) {
+      return;
+    }
+    const amountRaw = Number((entry as Record<string, unknown>).amount);
+    const timestampRaw = Number((entry as Record<string, unknown>).timestamp);
+    const sourceIdRaw = (entry as Record<string, unknown>).sourceId;
+    const targetIdRaw = (entry as Record<string, unknown>).targetId;
+    const sourceNameRaw = (entry as Record<string, unknown>).sourceName;
+    const targetNameRaw = (entry as Record<string, unknown>).targetName;
+
+    if (
+      !Number.isFinite(amountRaw) ||
+      amountRaw <= 0 ||
+      typeof sourceIdRaw !== "string" ||
+      typeof targetIdRaw !== "string"
+    ) {
+      return;
+    }
+
+    sanitized.push({
+      id:
+        typeof (entry as Record<string, unknown>).id === "string"
+          ? ((entry as Record<string, unknown>).id as string)
+          : `${fallbackBase}-${index}`,
+      timestamp: Number.isFinite(timestampRaw) ? timestampRaw : Date.now(),
+      amount: Math.round(amountRaw),
+      sourceId: sourceIdRaw,
+      targetId: targetIdRaw,
+      sourceName:
+        typeof sourceNameRaw === "string" && sourceNameRaw.trim() !== ""
+          ? sourceNameRaw
+          : sourceIdRaw,
+      targetName:
+        typeof targetNameRaw === "string" && targetNameRaw.trim() !== ""
+          ? targetNameRaw
+          : targetIdRaw,
+    });
+  });
+
+  return sanitized;
+};
+
+const formatTimestamp = (value: number) =>
+  timeFormatter.format(new Date(value));
+
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>(() =>
     buildDefaultPlayers(MAX_PLAYERS)
@@ -82,6 +153,7 @@ export default function Home() {
   const [sourceId, setSourceId] = useState<string>(BANK_ID);
   const [targetId, setTargetId] = useState<string>(playerKey(1));
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [history, setHistory] = useState<TransferRecord[]>([]);
 
   const nameResetTimers = useRef<
     Partial<Record<number, ReturnType<typeof setTimeout>>>
@@ -155,6 +227,8 @@ export default function Home() {
         : 0;
       setPlayers(nextPlayers);
       setTaxBalance(nextTax);
+      const nextHistory = sanitizeHistory(parsed?.history);
+      setHistory(nextHistory);
     } catch (error) {
       console.warn("Failed to load Monopoly banker state", error);
     }
@@ -165,12 +239,12 @@ export default function Home() {
       return;
     }
     try {
-      const payload = JSON.stringify({ players, taxBalance });
+      const payload = JSON.stringify({ players, taxBalance, history });
       window.localStorage.setItem(STORAGE_KEY, payload);
     } catch (error) {
       console.warn("Failed to persist Monopoly banker state", error);
     }
-  }, [players, taxBalance]);
+  }, [players, taxBalance, history]);
 
   useEffect(() => {
     return () => {
@@ -212,6 +286,21 @@ export default function Home() {
     { value: TAX_ID, label: `Tax Pile (${formatCurrency(taxBalance)})` },
     { value: BANK_ID, label: "Bank (unlimited)" },
   ];
+
+  const latestTransfer = history[0] ?? null;
+  const gainHighlightId = latestTransfer?.targetId ?? null;
+  const lossHighlightId = latestTransfer?.sourceId ?? null;
+
+  const shortAccountLabel = (id: string) => {
+    if (id === BANK_ID) {
+      return "Bank";
+    }
+    if (id === TAX_ID) {
+      return "Tax Pile";
+    }
+    const player = activePlayers.find((entry) => playerKey(entry.id) === id);
+    return player ? player.name : "Player";
+  };
 
   const describeAccount = (id: string) => {
     if (id === BANK_ID) {
@@ -257,6 +346,7 @@ export default function Home() {
     setCustomAmount("");
     setSourceId(BANK_ID);
     setTargetId(playerKey(1));
+    setHistory([]);
     setFeedback("Board reset to starting balances.");
   };
 
@@ -313,6 +403,9 @@ export default function Home() {
       return;
     }
 
+    const sourceLabel = shortAccountLabel(sourceId);
+    const targetLabel = shortAccountLabel(targetId);
+
     setPlayers((previous) =>
       previous.map((player) => {
         const key = playerKey(player.id);
@@ -335,6 +428,21 @@ export default function Home() {
     if (targetId === TAX_ID) {
       setTaxBalance((previous) => previous + pendingAmount);
     }
+
+    setHistory((previous) => {
+      const record: TransferRecord = {
+        id: `${Date.now().toString(36)}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+        timestamp: Date.now(),
+        amount: pendingAmount,
+        sourceId,
+        targetId,
+        sourceName: sourceLabel,
+        targetName: targetLabel,
+      };
+      return [record, ...previous].slice(0, 10);
+    });
 
     setFeedback(
       `Moved ${formatCurrency(pendingAmount)} from ${describeAccount(
@@ -528,37 +636,70 @@ export default function Home() {
             <div className={styles.card}>
               <h2>Live totals</h2>
               <div className={styles.balanceGrid}>
-                {activePlayers.map((player) => (
-                  <article
-                    key={player.id}
-                    className={styles.playerCard}
-                    style={{
-                      borderColor: player.color,
-                      boxShadow: `0 18px 45px ${player.color}33`,
-                    }}
-                  >
-                    <header className={styles.playerCardHeader}>
-                      <span
-                        className={styles.swatch}
-                        style={{ backgroundColor: player.color }}
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <p
-                          className={styles.playerTag}
-                          style={{ color: player.color }}
-                        >
-                          Player {player.id}
-                        </p>
-                        <h3>{player.name}</h3>
-                      </div>
-                    </header>
-                    <p className={styles.balanceValue}>
-                      {formatCurrency(player.balance)}
-                    </p>
-                  </article>
-                ))}
-                <article className={styles.playerCard}>
+                {activePlayers.map((player) => {
+                  const keyId = playerKey(player.id);
+                  const isGain = gainHighlightId === keyId;
+                  const isLoss = lossHighlightId === keyId;
+                  const borderColor = isGain
+                    ? GAIN_COLOR
+                    : isLoss
+                    ? LOSS_COLOR
+                    : player.color;
+                  const boxShadow = isGain
+                    ? `0 18px 45px ${GAIN_COLOR}55`
+                    : isLoss
+                    ? `0 18px 45px ${LOSS_COLOR}55`
+                    : `0 18px 45px ${player.color}33`;
+                  const playerTagColor = isGain
+                    ? GAIN_COLOR
+                    : isLoss
+                    ? LOSS_COLOR
+                    : player.color;
+                  return (
+                    <article
+                      key={player.id}
+                      className={styles.playerCard}
+                      style={{ borderColor, boxShadow }}
+                    >
+                      <header className={styles.playerCardHeader}>
+                        <span
+                          className={styles.swatch}
+                          style={{ backgroundColor: playerTagColor }}
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <p
+                            className={styles.playerTag}
+                            style={{ color: playerTagColor }}
+                          >
+                            Player {player.id}
+                          </p>
+                          <h3>{player.name}</h3>
+                        </div>
+                      </header>
+                      <p className={styles.balanceValue}>
+                        {formatCurrency(player.balance)}
+                      </p>
+                    </article>
+                  );
+                })}
+                <article
+                  className={styles.playerCard}
+                  style={{
+                    borderColor:
+                      gainHighlightId === TAX_ID
+                        ? GAIN_COLOR
+                        : lossHighlightId === TAX_ID
+                        ? LOSS_COLOR
+                        : undefined,
+                    boxShadow:
+                      gainHighlightId === TAX_ID
+                        ? `0 18px 45px ${GAIN_COLOR}55`
+                        : lossHighlightId === TAX_ID
+                        ? `0 18px 45px ${LOSS_COLOR}55`
+                        : undefined,
+                  }}
+                >
                   <header>
                     <p className={styles.playerTag}>Special</p>
                     <h3>Tax Pile</h3>
@@ -567,7 +708,23 @@ export default function Home() {
                     {formatCurrency(taxBalance)}
                   </p>
                 </article>
-                <article className={styles.playerCard}>
+                <article
+                  className={styles.playerCard}
+                  style={{
+                    borderColor:
+                      gainHighlightId === BANK_ID
+                        ? GAIN_COLOR
+                        : lossHighlightId === BANK_ID
+                        ? LOSS_COLOR
+                        : undefined,
+                    boxShadow:
+                      gainHighlightId === BANK_ID
+                        ? `0 18px 45px ${GAIN_COLOR}55`
+                        : lossHighlightId === BANK_ID
+                        ? `0 18px 45px ${LOSS_COLOR}55`
+                        : undefined,
+                  }}
+                >
                   <header>
                     <p className={styles.playerTag}>Special</p>
                     <h3>Bank</h3>
@@ -575,6 +732,48 @@ export default function Home() {
                   <p className={styles.balanceValue}>Unlimited</p>
                 </article>
               </div>
+            </div>
+            <div className={styles.card}>
+              <div className={styles.historyHeader}>
+                <h2>Last 10 moves</h2>
+                {history.length > 0 && (
+                  <p className={styles.historyTimestamp}>
+                    Updated {formatTimestamp(history[0].timestamp)}
+                  </p>
+                )}
+              </div>
+              {history.length === 0 ? (
+                <p className={styles.historyEmpty}>No transfers yet.</p>
+              ) : (
+                <ul className={styles.historyList}>
+                  {history.map((record) => (
+                    <li key={record.id} className={styles.historyItem}>
+                      <div>
+                        <p className={styles.historyNames}>
+                          <span className={styles.historySource}>
+                            {record.sourceName}
+                          </span>
+                          <span
+                            className={styles.historyArrow}
+                            aria-hidden="true"
+                          >
+                            →
+                          </span>
+                          <span className={styles.historyTarget}>
+                            {record.targetName}
+                          </span>
+                        </p>
+                        <p className={styles.historyMeta}>
+                          {formatTimestamp(record.timestamp)} ·
+                          <span className={styles.historyAmount}>
+                            {formatCurrency(record.amount)}
+                          </span>
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </section>
         </div>

@@ -270,12 +270,14 @@
   width: 100%;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.08));
-  padding: 0.6rem 2.5rem 0.6rem 0.85rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.15));
+  padding: 0.6rem 2.8rem 0.6rem 1rem;
   color: var(--text-primary);
   appearance: none;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .transferGrid select:focus {
@@ -300,7 +302,7 @@
 .swapButton {
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--surface);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
   color: var(--text-primary);
   padding: 0.45rem 1.2rem;
   font-weight: 600;
@@ -394,6 +396,72 @@
 .balanceValue {
   margin: 0;
   font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.historyTimestamp {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.historyEmpty {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.historyList {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.historyItem {
+  padding: 0.85rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.historyNames {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.historySource {
+  color: var(--danger);
+}
+
+.historyTarget {
+  color: var(--success);
+}
+
+.historyArrow {
+  opacity: 0.8;
+}
+
+.historyMeta {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.historyAmount {
+  margin-left: 0.25rem;
+  color: var(--accent);
   font-weight: 600;
 }
 

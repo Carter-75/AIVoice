@@ -14,6 +14,29 @@
     align-items: center;
 }
 
+.heroVisual {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.heroOrb {
+    width: min(220px, 60vw);
+    height: min(220px, 60vw);
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #a5b4fc, #6366f1 55%, #312e81 100%);
+    box-shadow: 0 20px 60px rgba(99, 102, 241, 0.35);
+    margin: 0 auto;
+}
+
+.scene {
+    width: 100%;
+    height: 160px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
 .heroCard {
     background: white;
     padding: 2rem;
@@ -196,4 +219,33 @@
     margin-left: 1.25rem;
     margin-bottom: 1.5rem;
     color: #475569;
+}
+
+@media (max-width: 900px) {
+    .hero {
+        padding-top: 2.5rem;
+    }
+
+    .heroGrid {
+        gap: 2rem;
+    }
+
+    .embedFrame {
+        height: 520px;
+    }
+}
+
+@media (max-width: 600px) {
+    .heroActions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .heroCard {
+        padding: 1.5rem;
+    }
+
+    .embedFrame {
+        height: 440px;
+    }
 }

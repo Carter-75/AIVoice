@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import Confetti from "react-confetti";
+import anime from "animejs";
+import * as Matter from "matter-js";
+import { useWindowSize } from "react-use";
 
 import styles from "./page.module.css";
 
@@ -75,14 +80,115 @@ const saveServer = (value: string) => {
 };
 
 export default function Home() {
+    const { width, height } = useWindowSize();
     const [serverUrl, setServerUrl] = useState(loadSavedServer());
     const [status, setStatus] = useState<"idle" | "checking" | "connected" | "failed">("idle");
     const [statusNote, setStatusNote] = useState("Not checked yet.");
     const [embedEnabled, setEmbedEnabled] = useState(true);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const heroCardRef = useRef<HTMLDivElement | null>(null);
+    const orbRef = useRef<HTMLDivElement | null>(null);
+    const sceneRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         saveServer(serverUrl);
     }, [serverUrl]);
+
+    useEffect(() => {
+        const card = heroCardRef.current;
+        const orb = orbRef.current;
+        if (!card || !orb) return;
+
+        const cardAnimation = anime({
+            targets: card,
+            translateY: [0, -6],
+            direction: "alternate",
+            easing: "easeInOutSine",
+            duration: 2200,
+            loop: true,
+        });
+
+        const orbAnimation = anime({
+            targets: orb,
+            translateX: [0, 16],
+            translateY: [0, -12],
+            scale: [1, 1.08],
+            direction: "alternate",
+            easing: "easeInOutQuad",
+            duration: 2600,
+            loop: true,
+        });
+
+        return () => {
+            cardAnimation.pause();
+            orbAnimation.pause();
+        };
+    }, []);
+
+    useEffect(() => {
+        const container = sceneRef.current;
+        if (!container) return;
+
+        const engine = Matter.Engine.create();
+        const render = Matter.Render.create({
+            element: container,
+            engine,
+            options: {
+                width: container.clientWidth,
+                height: 160,
+                background: "transparent",
+                wireframes: false,
+            },
+        });
+
+        const ground = Matter.Bodies.rectangle(
+            render.options.width / 2,
+            150,
+            render.options.width,
+            20,
+            { isStatic: true, render: { fillStyle: "#e2e8f0" } }
+        );
+        const leftWall = Matter.Bodies.rectangle(0, 80, 10, 160, {
+            isStatic: true,
+            render: { fillStyle: "transparent" },
+        });
+        const rightWall = Matter.Bodies.rectangle(render.options.width, 80, 10, 160, {
+            isStatic: true,
+            render: { fillStyle: "transparent" },
+        });
+
+        const balls = Array.from({ length: 6 }).map((_, index) =>
+            Matter.Bodies.circle(40 + index * 40, 20 + index * 6, 12, {
+                restitution: 0.85,
+                render: {
+                    fillStyle: ["#6366f1", "#22c55e", "#f97316", "#0ea5e9", "#a855f7", "#f43f5e"][index % 6],
+                },
+            })
+        );
+
+        Matter.World.add(engine.world, [ground, leftWall, rightWall, ...balls]);
+        Matter.Engine.run(engine);
+        Matter.Render.run(render);
+
+        const handleResize = () => {
+            const width = container.clientWidth;
+            render.canvas.width = width;
+            render.options.width = width;
+            Matter.Body.setPosition(ground, { x: width / 2, y: 150 });
+            Matter.Body.setPosition(rightWall, { x: width, y: 80 });
+        };
+
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+            window.removeEventListener("resize", handleResize);
+            Matter.Render.stop(render);
+            Matter.Engine.clear(engine);
+            if (render.canvas.parentNode) {
+                render.canvas.parentNode.removeChild(render.canvas);
+            }
+        };
+    }, []);
 
     const normalizedServerUrl = useMemo(() => normalizeUrl(serverUrl), [serverUrl]);
     const wsUrl = useMemo(() => buildWebSocketUrl(serverUrl), [serverUrl]);
@@ -119,6 +225,8 @@ export default function Home() {
                     socket.close();
                     setStatus("connected");
                     setStatusNote("Handshake received. Server is ready.");
+                    setShowConfetti(true);
+                    window.setTimeout(() => setShowConfetti(false), 1800);
                 }
             }
         });
@@ -142,6 +250,12 @@ export default function Home() {
 
     return (
         <main className={styles.page}>
+            <Confetti
+                width={width}
+                height={height}
+                recycle={showConfetti}
+                numberOfPieces={showConfetti ? 140 : 0}
+            />
             <section className={`section ${styles.hero}`}>
                 <div className="container">
                     <div className={styles.heroGrid}>
@@ -179,7 +293,11 @@ export default function Home() {
                                 <span>Persona control</span>
                             </div>
                         </div>
-                        <div className={styles.heroCard}>
+                        <div className={styles.heroVisual}>
+                            <div className={styles.heroOrb} ref={orbRef} />
+                            <div className={styles.scene} ref={sceneRef} aria-hidden="true" />
+                        </div>
+                        <div className={styles.heroCard} ref={heroCardRef}>
                             <h2 className="title is-5">Server Settings</h2>
                             <p className="subtitle is-6">
                                 Point this UI to your hosted PersonaPlex server (Railway recommended for GPU).
@@ -206,6 +324,13 @@ export default function Home() {
                                 />
                                 <label htmlFor="embed-toggle">Embed voice UI below</label>
                             </div>
+                            <button
+                                className="button is-link is-fullwidth"
+                                type="button"
+                                onClick={() => setShowConfetti(true)}
+                            >
+                                Celebrate launch
+                            </button>
                             <div className={styles.infoPanel}>
                                 <h3 className="title is-6">Defaults</h3>
                                 <div className={styles.defaultsGrid}>

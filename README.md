@@ -1,27 +1,30 @@
-# __PROJECT_NAME__
+# AIVoice
 
-This is a template repository for a Next.js project.
+A polished Next.js front-end that connects to a hosted PersonaPlex server for real-time, full‑duplex voice conversations.
 
-It has been pre-configured with:
-- TypeScript
-- Bulma for styling
-- A basic file structure
+## Deployment Targets
 
-## How to Use
+- **Frontend**: Railway (Next.js)
+- **Backend**: Railway (PersonaPlex server with GPU)
 
-This repository is intended to be used with a setup script, such as `setup-next-project.ps1`.
+## Required Environment Variables
 
-1. Run the script.
-2. It will clone this repository.
-3. It will install the dependencies.
-4. You will be ready to start developing.
+Frontend service (AIVoice):
 
-## Getting Started with Development
-
-Once the setup script is complete, you can run the development server:
-
-```bash
-npm run dev
+```
+NEXT_PUBLIC_PERSONAPLEX_URL=https://your-personaplex-service.up.railway.app
 ```
 
-This will start the Next.js development server with Turbopack enabled for faster performance. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Backend service (PersonaPlex):
+
+```
+HF_TOKEN=your_huggingface_token
+```
+
+## Notes
+
+- PersonaPlex code is MIT‑licensed; model weights use the NVIDIA Open Model license.
+- Browsers require HTTPS for microphone access.
+- Web search is not built in; add a separate browsing/search tool on the backend if needed.
+- Docker can wire defaults, but secrets like HF_TOKEN must be set in Railway.
+

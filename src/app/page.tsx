@@ -130,11 +130,12 @@ export default function Home() {
         if (!container) return;
 
         const engine = Matter.Engine.create();
+        const initialWidth = container.clientWidth || 320;
         const render = Matter.Render.create({
             element: container,
             engine,
             options: {
-                width: container.clientWidth,
+                width: initialWidth,
                 height: 160,
                 background: "transparent",
                 wireframes: false,
@@ -142,9 +143,9 @@ export default function Home() {
         });
 
         const ground = Matter.Bodies.rectangle(
-            render.options.width / 2,
+            initialWidth / 2,
             150,
-            render.options.width,
+            initialWidth,
             20,
             { isStatic: true, render: { fillStyle: "#e2e8f0" } }
         );
@@ -152,7 +153,7 @@ export default function Home() {
             isStatic: true,
             render: { fillStyle: "transparent" },
         });
-        const rightWall = Matter.Bodies.rectangle(render.options.width, 80, 10, 160, {
+        const rightWall = Matter.Bodies.rectangle(initialWidth, 80, 10, 160, {
             isStatic: true,
             render: { fillStyle: "transparent" },
         });
